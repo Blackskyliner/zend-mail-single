@@ -1,0 +1,3 @@
+This is just a simple Repository which will make the ZendMail Component available w/o using composer. 
+
+(Like for older projects or the ones which just don't want to use Composer)
