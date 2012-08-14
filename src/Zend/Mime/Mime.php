@@ -33,7 +33,7 @@ class Mime
     const MULTIPART_MIXED = 'multipart/mixed';
     const MULTIPART_RELATED = 'multipart/related';
 
-    protected $_boundary;
+    protected $boundary;
     protected static $makeUnique = 0;
 
     // lookup-Tables for QuotedPrintable
@@ -189,16 +189,16 @@ class Mime
 
         // Split encoded text into separate lines
         $tmp = "";
-        while(strlen($str) > 0) {
+        while (strlen($str) > 0) {
             $currentLine = max(count($lines)-1, 0);
             $token       = self::getNextQuotedPrintableToken($str);
             $str         = substr($str, strlen($token));
 
             $tmp .= $token;
-            if($token == '=20') {
+            if ($token == '=20') {
                 // only if we have a single char token or space, we can append the
                 // tempstring it to the current line or start a new line if necessary.
-                if(strlen($lines[$currentLine].$tmp) > $lineLength) {
+                if (strlen($lines[$currentLine].$tmp) > $lineLength) {
                     $lines[$currentLine+1] = $tmp;
                 } else {
                     $lines[$currentLine] .= $tmp;
@@ -206,13 +206,13 @@ class Mime
                 $tmp = "";
             }
             // don't forget to append the rest to the last line
-            if(strlen($str) == 0) {
+            if (strlen($str) == 0) {
                 $lines[$currentLine] .= $tmp;
             }
         }
 
         // assemble the lines together by pre- and appending delimiters, charset, encoding.
-        for($i = 0; $i < count($lines); $i++) {
+        for ($i = 0; $i < count($lines); $i++) {
             $lines[$i] = " ".$prefix.$lines[$i]."?=";
         }
         $str = trim(implode($lineEnd, $lines));
@@ -227,7 +227,7 @@ class Mime
      */
     private static function getNextQuotedPrintableToken($str)
     {
-        if(substr($str, 0, 1) == "=") {
+        if (substr($str, 0, 1) == "=") {
             $token = substr($str, 0, 3);
         } else {
             $token = substr($str, 0, 1);
@@ -280,15 +280,14 @@ class Mime
      *
      * @param null|string $boundary
      * @access public
-     * @return void
      */
     public function __construct($boundary = null)
     {
         // This string needs to be somewhat unique
         if ($boundary === null) {
-            $this->_boundary = '=_' . md5(microtime(1) . self::$makeUnique++);
+            $this->boundary = '=_' . md5(microtime(1) . self::$makeUnique++);
         } else {
-            $this->_boundary = $boundary;
+            $this->boundary = $boundary;
         }
     }
 
@@ -325,7 +324,7 @@ class Mime
      */
     public function boundary()
     {
-        return $this->_boundary;
+        return $this->boundary;
     }
 
     /**
@@ -337,7 +336,7 @@ class Mime
      */
     public function boundaryLine($EOL = self::LINEEND)
     {
-        return $EOL . '--' . $this->_boundary . $EOL;
+        return $EOL . '--' . $this->boundary . $EOL;
     }
 
     /**
@@ -348,6 +347,6 @@ class Mime
      */
     public function mimeEnd($EOL = self::LINEEND)
     {
-        return $EOL . '--' . $this->_boundary . '--' . $EOL;
+        return $EOL . '--' . $this->boundary . '--' . $EOL;
     }
 }

@@ -27,7 +27,7 @@ use WeakRef;
 class CallbackHandler
 {
     /**
-     * @var string|array PHP callback to invoke
+     * @var string|array|callable PHP callback to invoke
      */
     protected $callback;
 
@@ -38,12 +38,23 @@ class CallbackHandler
     protected $metadata;
 
     /**
+     * PHP version is greater as 5.4rc1?
+     * @var boolean
+     */
+    protected static $isPhp54;
+
+    /**
+     * Is pecl/weakref extension installed?
+     * @var boolean
+     */
+    protected static $hasWeakRefExtension;
+
+    /**
      * Constructor
      *
-     * @param  string $event Event to which slot is subscribed
-     * @param  string|array|object $callback PHP callback
-     * @param  array $options Options used by the callback handler (e.g., priority)
-     * @return void
+     * @param  string                       $event    Event to which slot is subscribed
+     * @param  string|array|object|callable $callback PHP callback
+     * @param  array                        $options  Options used by the callback handler (e.g., priority)
      */
     public function __construct($callback, array $metadata = array())
     {
@@ -61,7 +72,7 @@ class CallbackHandler
      * instance, this method will pass the object to a WeakRef instance prior
      * to registering the callback.
      *
-     * @param  callback $callback
+     * @param  callable $callback
      * @return void
      */
     protected function registerCallback($callback)
@@ -70,8 +81,12 @@ class CallbackHandler
             throw new Exception\InvalidCallbackException('Invalid callback provided; not callable');
         }
 
+        if (null === self::$hasWeakRefExtension) {
+            self::$hasWeakRefExtension = class_exists('WeakRef');
+        }
+
         // If pecl/weakref is not installed, simply store the callback and return
-        if (!class_exists('WeakRef')) {
+        if (!self::$hasWeakRefExtension) {
             $this->callback = $callback;
             return;
         }
@@ -109,7 +124,7 @@ class CallbackHandler
     /**
      * Retrieve registered callback
      *
-     * @return Callback
+     * @return callable
      */
     public function getCallback()
     {
@@ -156,29 +171,41 @@ class CallbackHandler
             return null;
         }
 
-        $isPhp54 = version_compare(PHP_VERSION, '5.4.0rc1', '>=');
+        // Minor performance tweak, if the callback gets called more than once
+        if (!isset(self::$isPhp54)) {
+            self::$isPhp54 = version_compare(PHP_VERSION, '5.4.0rc1', '>=');
+        }
 
-        if ($isPhp54 && is_string($callback)) {
-            $this->validateStringCallbackFor54($callback);
+        $argCount = count($args);
+
+        if (self::$isPhp54 && is_string($callback)) {
+            $result = $this->validateStringCallbackFor54($callback);
+
+            if ($result !== true && $argCount <= 3) {
+                $callback       = $result;
+                // Minor performance tweak, if the callback gets called more
+                // than once
+                $this->callback = $result;
+            }
         }
 
         // Minor performance tweak; use call_user_func() until > 3 arguments
         // reached
-        switch (count($args)) {
+        switch ($argCount) {
             case 0:
-                if ($isPhp54) {
+                if (self::$isPhp54) {
                     return $callback();
                 }
                 return call_user_func($callback);
             case 1:
-                if ($isPhp54) {
+                if (self::$isPhp54) {
                     return $callback(array_shift($args));
                 }
                 return call_user_func($callback, array_shift($args));
             case 2:
                 $arg1 = array_shift($args);
                 $arg2 = array_shift($args);
-                if ($isPhp54) {
+                if (self::$isPhp54) {
                     return $callback($arg1, $arg2);
                 }
                 return call_user_func($callback, $arg1, $arg2);
@@ -186,7 +213,7 @@ class CallbackHandler
                 $arg1 = array_shift($args);
                 $arg2 = array_shift($args);
                 $arg3 = array_shift($args);
-                if ($isPhp54) {
+                if (self::$isPhp54) {
                     return $callback($arg1, $arg2, $arg3);
                 }
                 return call_user_func($callback, $arg1, $arg2, $arg3);
@@ -235,7 +262,7 @@ class CallbackHandler
      * Validates that a static method call in PHP 5.4 will actually work
      *
      * @param  string $callback
-     * @return true
+     * @return true|array
      * @throws Exception\InvalidCallbackException if invalid
      */
     protected function validateStringCallbackFor54($callback)
@@ -268,6 +295,9 @@ class CallbackHandler
             ));
         }
 
-        return true;
+        // returning a non boolean value may not be nice for a validate method,
+        // but that allows the usage of a static string callback without using
+        // the call_user_func function.
+        return array($class, $method);
     }
 }
