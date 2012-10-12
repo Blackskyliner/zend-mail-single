@@ -1,3 +1,3 @@
-This is just a simple Repository which will make the ZendMail Component available w/o using composer. 
+This is just a simple Repository which will just make the ZendMail Component available. 
 
-(Like for older projects or the ones which just don't want to use Composer)
+(Like for older projects or the ones which just don't want to use Composer or just don't want to fetch the whole ZF2 e.g. if you are working with SF2)
